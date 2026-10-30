@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>PR Tracker settings</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="options">
+    <div class="card">
+      <div class="options-head">
+        <img src="icons/icon-48.png" alt="" width="40" height="40" />
+        <h1>PR Tracker settings</h1>
+      </div>
+
+      <label>GitHub account</label>
+      <div class="conn">
+        <span id="conn-text" class="muted">Checking…</span>
+        <button id="signin" class="primary" hidden>Sign in with GitHub</button>
+        <button id="signout" hidden>Sign out</button>
+      </div>
+
+      <div id="device" class="device" hidden>
+        <p>Enter this code on GitHub, then approve (Okta SSO happens there if needed):</p>
+        <div id="code" class="code"></div>
+        <div class="row">
+          <a id="open" class="btn" href="https://github.com/login/device" target="_blank">Open github.com/login/device</a>
+          <button id="cancel">Cancel</button>
+        </div>
+        <p id="device-status" class="hint">Waiting for approval…</p>
+      </div>
+
+      <details class="advanced">
+        <summary>Advanced</summary>
+
+        <label for="client-id">OAuth App Client ID</label>
+        <input id="client-id" type="text" placeholder="Ov23li…" autocomplete="off" spellcheck="false" />
+        <p class="hint">
+          Needed for “Sign in with GitHub”. Create an OAuth App (Settings → Developer settings → OAuth Apps)
+          with <b>Enable Device Flow</b> ticked, then paste its Client ID here.
+        </p>
+      </details>
+
+      <label for="repos">Repositories</label>
+      <textarea id="repos" rows="8" placeholder="LedgerHQ/coinradar-v2" spellcheck="false"></textarea>
+      <p class="hint">One <code>owner/name</code> per line. Sections appear in this order.</p>
+
+      <div class="actions">
+        <button id="save" class="primary">Save</button>
+        <span id="status" class="muted"></span>
+      </div>
+    </div>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

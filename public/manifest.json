@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "PR Tracker",
+  "version": "0.1.0",
+  "description": "Track the state of your open GitHub pull requests, grouped by repository.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_title": "PR Tracker",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    }
+  },
+  "options_page": "options.html",
+  "side_panel": { "default_path": "sidepanel.html" },
+  "background": { "service_worker": "background.js", "type": "module" },
+  "permissions": ["storage", "alarms", "sidePanel"],
+  "host_permissions": ["https://api.github.com/*", "https://github.com/*"]
+}
