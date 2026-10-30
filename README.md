@@ -24,7 +24,15 @@ A Chrome side panel that shows the state of your open GitHub pull requests, grou
 
 Only open PRs **you authored** are shown.
 
-## Install
+## Download
+
+Grab the latest `pr-tracker-vX.Y.Z.zip` from the [Releases page](../../releases/latest), unzip it, then:
+
+1. Open `chrome://extensions` and turn on **Developer mode**.
+2. Click **Load unpacked** and select the unzipped folder (keep it in place, Chrome reads it from there).
+3. Click the PR Tracker icon in the toolbar, then follow [Set up sign-in](#set-up-sign-in-one-time).
+
+## Build from source
 
 Requires Node 22+, [pnpm](https://pnpm.io) (npm works too), and Chrome 114+ (for the side panel API).
 
