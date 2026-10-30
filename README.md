@@ -26,7 +26,9 @@ Only open PRs **you authored** are shown.
 
 ## Download
 
-Grab the latest `pr-tracker-vX.Y.Z.zip` from the [Releases page](../../releases/latest), unzip it, then:
+Download [`pr-tracker.zip`](../../releases/download/latest/pr-tracker.zip), the build of the latest `main`
+(rebuilt automatically on every push), and unzip it. Numbered versions are on the
+[Releases page](../../releases). Then:
 
 1. Open `chrome://extensions` and turn on **Developer mode**.
 2. Click **Load unpacked** and select the unzipped folder (keep it in place, Chrome reads it from there).

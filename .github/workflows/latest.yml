@@ -1,0 +1,44 @@
+name: Latest build
+
+# Every push to main rebuilds the extension and replaces the rolling "latest" release,
+# so https://github.com/<owner>/<repo>/releases/download/latest/pr-tracker.zip is always current.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: latest-build
+  cancel-in-progress: true
+
+jobs:
+  latest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm build
+
+      - name: Package
+        run: |
+          cd dist
+          zip -r ../pr-tracker.zip . -x "*.map"
+
+      - name: Replace the "latest" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --cleanup-tag --yes || true
+          gh release create latest pr-tracker.zip \
+            --target "$GITHUB_SHA" --prerelease \
+            --title "Latest build" \
+            --notes "Automatic build of \`main\` at ${GITHUB_SHA::7}. Unzip, then load the folder with chrome://extensions → Load unpacked."
