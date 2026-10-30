@@ -1,4 +1,8 @@
-# PR Tracker
+<p align="center">
+  <img src="public/icons/icon-128.png" alt="PR Tracker icon" width="96" height="96">
+</p>
+
+<h1 align="center">PR Tracker</h1>
 
 A Chrome side panel that shows the state of your open GitHub pull requests, grouped by repository.
 
