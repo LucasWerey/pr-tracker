@@ -6,7 +6,7 @@ A Chrome side panel that shows the state of your open GitHub pull requests, grou
 - PRs grouped as **In merge queue**, **Can be merged**, **Waiting for review** and **Draft**
 - Status chips for CI, review decision, merge conflicts, unresolved threads and merge-queue position
 - A badge on the toolbar icon with the number of open PRs
-- Refreshes every 5 minutes; light and dark mode
+- Refreshes every minute; light and dark mode
 - No backend: everything runs in the extension, talking to the GitHub API directly
 
 Only open PRs **you authored** are shown.
@@ -59,7 +59,7 @@ pnpm icons       # regenerate public/icons/*.png from scripts/icons.mjs
 
 ```
 src/
-  background.ts   alarm that refreshes every 5 min, opens the panel on icon click
+  background.ts   alarm that refreshes every minute, opens the panel on icon click
   refresh.ts      fetch -> save snapshot -> update toolbar badge
   github.ts       GraphQL query and mapping to PullRequest
   auth.ts         OAuth device flow

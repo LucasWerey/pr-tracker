@@ -3,7 +3,7 @@ import { refresh } from "./refresh";
 const ALARM = "refresh";
 
 function schedule() {
-  chrome.alarms.create(ALARM, { periodInMinutes: 5 });
+  chrome.alarms.create(ALARM, { periodInMinutes: 1 });
 }
 
 // Clicking the toolbar icon opens the side panel (there is no popup).
