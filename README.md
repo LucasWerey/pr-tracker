@@ -2,6 +2,13 @@
 
 A Chrome side panel that shows the state of your open GitHub pull requests, grouped by repository.
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png">
+    <img src="docs/screenshot-light.png" alt="PR Tracker side panel showing PRs grouped by repo and status" width="360">
+  </picture>
+</p>
+
 - One collapsible section per repo you choose, collapsed by default (your choice is remembered)
 - PRs grouped as **In merge queue**, **Can be merged**, **Waiting for review** and **Draft**
 - Status chips for CI, review decision, merge conflicts, unresolved threads and merge-queue position
@@ -55,6 +62,7 @@ runs read queries.
 pnpm watch       # rebuild on change (reload the extension in chrome://extensions)
 pnpm typecheck   # tsc --noEmit
 pnpm icons       # regenerate public/icons/*.png from scripts/icons.mjs
+pnpm screenshot  # re-render docs/screenshot-*.png from sample data (needs Chrome)
 ```
 
 ```
