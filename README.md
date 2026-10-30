@@ -11,6 +11,8 @@ A Chrome side panel that shows the state of your open GitHub pull requests, grou
     <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png">
     <img src="docs/screenshot-light.png" alt="PR Tracker side panel showing PRs grouped by repo and status" width="360">
   </picture>
+  <br>
+  <sub>Sample data</sub>
 </p>
 
 - One collapsible section per repo you choose, collapsed by default (your choice is remembered)
@@ -24,7 +26,7 @@ Only open PRs **you authored** are shown.
 
 ## Install
 
-Requires Node 20+ and [pnpm](https://pnpm.io) (npm works too).
+Requires Node 22+, [pnpm](https://pnpm.io) (npm works too), and Chrome 114+ (for the side panel API).
 
 ```sh
 pnpm install
@@ -91,7 +93,8 @@ public/           manifest, HTML, CSS, icons (copied to dist/)
 ## Privacy
 
 The access token is stored in `chrome.storage.sync` (it syncs across your signed-in Chrome profiles). The extension
-only talks to `github.com` and `api.github.com`.
+only talks to `github.com` and `api.github.com`, plus `avatars.githubusercontent.com` for your profile picture.
+Use **Sign out** in the settings to remove the token.
 
 ## License
 
