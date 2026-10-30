@@ -39,6 +39,6 @@ jobs:
         run: |
           gh release delete latest --cleanup-tag --yes || true
           gh release create latest pr-tracker.zip \
-            --target "$GITHUB_SHA" --prerelease \
+            --target "$GITHUB_SHA" --latest \
             --title "Latest build" \
             --notes "Automatic build of \`main\` at ${GITHUB_SHA::7}. Unzip, then load the folder with chrome://extensions → Load unpacked."
