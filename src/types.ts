@@ -29,8 +29,16 @@ export interface PullRequest {
   queue?: QueueEntry;
 }
 
+export interface Viewer {
+  login: string;
+  avatarUrl: string;
+  /** Link to the user's GitHub profile. */
+  url: string;
+}
+
 export interface Snapshot {
   fetchedAt: number;
+  viewer?: Viewer;
   prs: PullRequest[];
   /** Configured repos the token could not see. */
   inaccessible?: string[];

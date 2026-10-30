@@ -1,4 +1,4 @@
-import type { CiState, Mergeable, PullRequest, QueueEntry, ReviewDecision } from "./types";
+import type { CiState, Mergeable, PullRequest, QueueEntry, ReviewDecision, Viewer } from "./types";
 
 /** One aliased `repository` lookup per configured repo: null when the token can't see it. */
 function buildQuery(repos: string[]): string {
@@ -12,6 +12,9 @@ function buildQuery(repos: string[]): string {
 }
 
 const VIEWER_QUERY = `  viewer {
+    login
+    avatarUrl
+    url
     pullRequests(states: OPEN, first: 100, orderBy: {field: UPDATED_AT, direction: DESC}) {
       nodes {
         number
@@ -45,6 +48,7 @@ interface Node {
 }
 
 export interface FetchResult {
+  viewer: Viewer;
   prs: PullRequest[];
   /** Configured repos the token cannot see (wrong name, repo not granted, or org hasn't approved the app). */
   inaccessible: string[];
@@ -86,7 +90,8 @@ export async function fetchMyPrs(token: string, repos: string[]): Promise<FetchR
       queue: n.mergeQueueEntry ?? undefined,
     }));
 
-  return { prs, inaccessible };
+  const { login, avatarUrl, url } = json.data.viewer;
+  return { viewer: { login, avatarUrl, url }, prs, inaccessible };
 }
 
 /** Login of the account the token belongs to, or null if the token is rejected. */

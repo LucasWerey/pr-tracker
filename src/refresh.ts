@@ -15,7 +15,12 @@ export async function refresh(): Promise<Snapshot> {
     } catch (e) {
       // Keep the previous PR list visible if the fetch failed.
       const previous = await getSnapshot();
-      snapshot = { fetchedAt: Date.now(), prs: previous?.prs ?? [], error: (e as Error).message };
+      snapshot = {
+        fetchedAt: Date.now(),
+        viewer: previous?.viewer,
+        prs: previous?.prs ?? [],
+        error: (e as Error).message,
+      };
     }
   }
 
