@@ -97,15 +97,3 @@ export async function fetchViewerLogin(token: string): Promise<string | null> {
   if (!res.ok) return null;
   return (await res.json()).login;
 }
-
-/** A PR "needs attention" when CI failed, changes were requested, or it conflicts. */
-export function needsAttention(pr: PullRequest): boolean {
-  // Once queued, only the queue's own verdict matters.
-  if (pr.queue) return pr.queue.state === "UNMERGEABLE";
-  return (
-    pr.ci === "FAILURE" ||
-    pr.ci === "ERROR" ||
-    pr.review === "CHANGES_REQUESTED" ||
-    pr.mergeable === "CONFLICTING"
-  );
-}

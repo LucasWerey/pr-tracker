@@ -1,4 +1,4 @@
-import { fetchMyPrs, needsAttention } from "./github";
+import { fetchMyPrs } from "./github";
 import { getSettings, getSnapshot, saveSnapshot } from "./storage";
 import type { Snapshot } from "./types";
 
@@ -20,8 +20,8 @@ export async function refresh(): Promise<Snapshot> {
   }
 
   await saveSnapshot(snapshot);
-  const attention = snapshot.prs.filter(needsAttention).length;
-  await chrome.action.setBadgeText({ text: attention > 0 ? String(attention) : "" });
-  await chrome.action.setBadgeBackgroundColor({ color: "#cf222e" });
+  const count = snapshot.prs.length;
+  await chrome.action.setBadgeText({ text: count > 0 ? String(count) : "" });
+  await chrome.action.setBadgeBackgroundColor({ color: "#6d5dfc" });
   return snapshot;
 }

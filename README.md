@@ -5,7 +5,7 @@ A Chrome side panel that shows the state of your open GitHub pull requests, grou
 - One collapsible section per repo you choose, collapsed by default (your choice is remembered)
 - PRs grouped as **In merge queue**, **Can be merged**, **Waiting for review** and **Draft**
 - Status chips for CI, review decision, merge conflicts, unresolved threads and merge-queue position
-- A badge on the toolbar icon counting PRs that need attention (failing CI, changes requested, conflicts)
+- A badge on the toolbar icon with the number of open PRs
 - Refreshes every 5 minutes; light and dark mode
 - No backend: everything runs in the extension, talking to the GitHub API directly
 
