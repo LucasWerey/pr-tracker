@@ -51,7 +51,26 @@ Then in Chrome:
 
 ## Set up sign-in (one time)
 
-The extension signs in with GitHub's [device flow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow), so it needs no server and no client secret.
+Sign in with a personal access token (A) or with your own OAuth App (B). Neither needs a server.
+
+### Option A: personal access token
+
+Needs no org owner, so it is the quicker route.
+
+1. Create a classic token with the `repo` scope: <https://github.com/settings/tokens/new?scopes=repo&description=PR%20Tracker>
+   (the settings page also has a **Create one** link).
+2. For an org that uses SSO, click **Configure SSO → Authorize** next to the token.
+3. Open the extension's settings (the sliders icon in the panel header) and paste the token under
+   **or paste a personal access token**.
+4. Click **Connect**. The extension checks the token with GitHub and saves it only if GitHub accepts it.
+5. Add the repos to follow, one `owner/name` per line, and click **Save**.
+
+Fine-grained tokens also work, but they can still need approval from the org. Some orgs block classic tokens; if
+yours does, use Option B.
+
+### Option B: OAuth App (device flow)
+
+This uses GitHub's [device flow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow), so it needs no client secret.
 
 1. Create an OAuth App at <https://github.com/settings/applications/new>:
    - **Homepage URL** and **Authorization callback URL**: `https://github.com` (the device flow doesn't use them)
@@ -64,12 +83,14 @@ The extension signs in with GitHub's [device flow](https://docs.github.com/en/ap
 
 ### Private repos in an organization
 
-If the org restricts OAuth App access, GitHub hides its data from the app until an org owner approves it
-(Org settings → Third-party access → OAuth app policy). Until then the repo's card shows
+With the OAuth App (Option B), if the org restricts OAuth App access, GitHub hides its data from the app until an
+org owner approves it (Org settings → Third-party access → OAuth app policy). Until then the repo's card shows
 "GitHub can't see this repo with this sign-in". You can request approval from
 <https://github.com/settings/connections/applications>.
 
-The app asks for the `repo` scope, which is the only OAuth scope that reaches private repos. The extension only
+A classic token authorized for SSO (Option A) avoids that approval step.
+
+Either way the `repo` scope is needed: it is the only scope that reaches private repos. The extension only
 runs read queries.
 
 ## Development
