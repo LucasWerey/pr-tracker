@@ -185,8 +185,8 @@ function repoSection(
       el(
         "div",
         "notice error",
-        `GitHub can't see ${repo} with this sign-in. Check the repo name. With a token, authorize it for ` +
-          `${owner}'s SSO (token settings → Configure SSO). With the OAuth App, ${owner} must approve it ` +
+        `GitHub can't see ${repo} with this sign-in. Check the repo name. With a token, check it has the repo scope ` +
+          `and is authorized for ${owner}'s SSO (token settings → Configure SSO). With the OAuth App, ${owner} must approve it ` +
           "(Org settings → Third-party access).",
       ),
     );

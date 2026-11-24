@@ -31,17 +31,28 @@ async function showConnection() {
   signout.hidden = true;
 
   if (current) {
-    const login = await fetchViewerLogin(current);
-    connText.textContent = login ? `Connected as @${login}` : "Saved token is invalid or expired";
-    connText.className = login ? "ok" : "error";
+    let login: string | null | undefined;
+    try {
+      login = await fetchViewerLogin(current);
+    } catch {
+      login = undefined;
+    }
+    if (login === undefined) {
+      connText.textContent = "Couldn't reach GitHub to check the saved token";
+      connText.className = "error";
+    } else {
+      connText.textContent = login ? `Connected as @${login}` : "Saved token is invalid or expired";
+      connText.className = login ? "ok" : "error";
+    }
     signout.hidden = false;
-    if (!login) signin.hidden = false;
+    if (login === null) signin.hidden = false;
   } else {
     connText.textContent = "Not connected";
     connText.className = "muted";
     signin.hidden = false;
   }
   tokenRow.hidden = signin.hidden;
+  if (tokenRow.hidden) tokenInput.value = "";
   signin.title = id ? "" : "Add an OAuth App Client ID under Advanced first";
 }
 
@@ -80,12 +91,16 @@ async function startSignIn() {
   }
 }
 
-/** Validates a pasted personal access token and saves it only if GitHub accepts it. */
-async function connectToken(raw: string): Promise<boolean> {
+/** Validates a pasted personal access token with GitHub. Returns it trimmed, or null. Never writes storage. */
+async function checkToken(raw: string): Promise<string | null> {
   const token = raw.trim();
   if (!token) {
     setStatus("Paste a token first.", "error");
-    return false;
+    return null;
+  }
+  if (!/^[\x21-\x7e]+$/.test(token)) {
+    setStatus("That doesn't look like a GitHub token.", "error");
+    return null;
   }
   connect.disabled = true;
   try {
@@ -94,27 +109,34 @@ async function connectToken(raw: string): Promise<boolean> {
       login = await fetchViewerLogin(token);
     } catch {
       setStatus("Couldn't reach GitHub. Try again.", "error");
-      return false;
+      return null;
     }
     if (!login) {
       setStatus("GitHub rejected this token.", "error");
-      return false;
+      return null;
     }
-    const { repos: current } = await getSettings();
-    await saveSettings({ token, repos: current });
-    tokenInput.value = "";
-    setStatus("Token saved ✓", "ok");
-    await showConnection();
-    return true;
+    return token;
   } finally {
     connect.disabled = false;
   }
 }
 
+/** Saves a pasted token only if GitHub accepts it. */
+async function connectToken(raw: string) {
+  const token = await checkToken(raw);
+  if (!token) return;
+  const { repos: current } = await getSettings();
+  await saveSettings({ token, repos: current });
+  tokenInput.value = "";
+  flow?.abort();
+  setStatus("Token saved ✓", "ok");
+  await showConnection();
+}
+
 signin.addEventListener("click", () => void startSignIn());
 connect.addEventListener("click", () => void connectToken(tokenInput.value));
 tokenInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") void connectToken(tokenInput.value);
+  if (e.key === "Enter" && !e.repeat && !connect.disabled) void connectToken(tokenInput.value);
 });
 $("cancel").addEventListener("click", () => flow?.abort());
 signout.addEventListener("click", async () => {
@@ -134,10 +156,21 @@ $("save").addEventListener("click", async () => {
     setStatus(`Invalid repo: ${invalid}`, "error");
     return;
   }
-  if (tokenInput.value.trim() && !(await connectToken(tokenInput.value))) return;
+  let token: string;
+  const pasted = tokenInput.value.trim() !== "";
+  if (pasted) {
+    const checked = await checkToken(tokenInput.value);
+    if (!checked) return;
+    token = checked;
+  } else {
+    token = (await getSettings()).token;
+  }
   await saveClientId(clientId.value.trim());
-  const { token } = await getSettings();
   await saveSettings({ token, repos: list });
+  if (pasted) {
+    tokenInput.value = "";
+    flow?.abort();
+  }
   setStatus("Saved ✓", "ok");
   await showConnection();
 });

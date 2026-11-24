@@ -55,10 +55,12 @@ Sign in with a personal access token (A) or with your own OAuth App (B). Neither
 
 ### Option A: personal access token
 
-Needs no org owner, so it is the quicker route.
+Usually needs no org owner, so it is the quicker route.
 
 1. Create a classic token with the `repo` scope: <https://github.com/settings/tokens/new?scopes=repo&description=PR%20Tracker>
    (the settings page also has a **Create one** link).
+   Pick an expiration. When the token expires, the panel shows “Invalid GitHub token”: create a new one and
+   paste it in Settings.
 2. For an org that uses SSO, click **Configure SSO → Authorize** next to the token.
 3. Open the extension's settings (the sliders icon in the panel header) and paste the token under
    **or paste a personal access token**.
@@ -90,8 +92,8 @@ org owner approves it (Org settings → Third-party access → OAuth app policy)
 
 A classic token authorized for SSO (Option A) avoids that approval step.
 
-Either way the `repo` scope is needed: it is the only scope that reaches private repos. The extension only
-runs read queries.
+Classic tokens and the OAuth App need the `repo` scope, the only classic scope that reaches private repos; a
+fine-grained token needs read access to the repos instead. The extension only runs read queries.
 
 ## Development
 
