@@ -296,6 +296,9 @@ button.primary:hover { filter: brightness(1.08); background: var(--accent); }
 #status.ok, .conn .ok { color: var(--green); }
 .conn { display: flex; align-items: center; gap: 10px; }
 .conn span { flex: 1; font-weight: 500; }
+.token-row .or { margin: 12px 0 6px; font-size: 12px; color: var(--muted); }
+.token-input { display: flex; gap: 8px; }
+.token-input input { flex: 1; min-width: 0; }
 .device { margin-top: 14px; padding: 14px; border: 1px dashed var(--border); border-radius: 10px; background: var(--bg); text-align: center; }
 .device p { margin: 0 0 8px; }
 .code { font: 700 28px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.12em; color: var(--accent); margin: 8px 0 12px; user-select: all; }

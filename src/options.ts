@@ -10,6 +10,9 @@ const status = $("status");
 const connText = $("conn-text");
 const signin = $<HTMLButtonElement>("signin");
 const signout = $<HTMLButtonElement>("signout");
+const tokenRow = $("token-row");
+const tokenInput = $<HTMLInputElement>("token");
+const connect = $<HTMLButtonElement>("connect");
 const device = $("device");
 const codeBox = $("code");
 const deviceStatus = $("device-status");
@@ -38,6 +41,7 @@ async function showConnection() {
     connText.className = "muted";
     signin.hidden = false;
   }
+  tokenRow.hidden = signin.hidden;
   signin.title = id ? "" : "Add an OAuth App Client ID under Advanced first";
 }
 
@@ -76,7 +80,42 @@ async function startSignIn() {
   }
 }
 
+/** Validates a pasted personal access token and saves it only if GitHub accepts it. */
+async function connectToken(raw: string): Promise<boolean> {
+  const token = raw.trim();
+  if (!token) {
+    setStatus("Paste a token first.", "error");
+    return false;
+  }
+  connect.disabled = true;
+  try {
+    let login: string | null;
+    try {
+      login = await fetchViewerLogin(token);
+    } catch {
+      setStatus("Couldn't reach GitHub. Try again.", "error");
+      return false;
+    }
+    if (!login) {
+      setStatus("GitHub rejected this token.", "error");
+      return false;
+    }
+    const { repos: current } = await getSettings();
+    await saveSettings({ token, repos: current });
+    tokenInput.value = "";
+    setStatus("Token saved ✓", "ok");
+    await showConnection();
+    return true;
+  } finally {
+    connect.disabled = false;
+  }
+}
+
 signin.addEventListener("click", () => void startSignIn());
+connect.addEventListener("click", () => void connectToken(tokenInput.value));
+tokenInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") void connectToken(tokenInput.value);
+});
 $("cancel").addEventListener("click", () => flow?.abort());
 signout.addEventListener("click", async () => {
   const { repos: current } = await getSettings();
@@ -95,6 +134,7 @@ $("save").addEventListener("click", async () => {
     setStatus(`Invalid repo: ${invalid}`, "error");
     return;
   }
+  if (tokenInput.value.trim() && !(await connectToken(tokenInput.value))) return;
   await saveClientId(clientId.value.trim());
   const { token } = await getSettings();
   await saveSettings({ token, repos: list });
