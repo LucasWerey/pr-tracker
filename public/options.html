@@ -19,6 +19,18 @@
         <button id="signout" hidden>Sign out</button>
       </div>
 
+      <div id="token-row" class="token-row" hidden>
+        <p class="or">or paste a personal access token</p>
+        <div class="token-input">
+          <input id="token" type="password" placeholder="ghp_…" autocomplete="off" spellcheck="false" aria-label="Personal access token" />
+          <button id="connect">Connect</button>
+        </div>
+        <p class="hint">
+          Classic token with the <code>repo</code> scope. For an SSO org, click <b>Configure SSO → Authorize</b> next to the token.
+          <a href="https://github.com/settings/tokens/new?scopes=repo&amp;description=PR%20Tracker" target="_blank" rel="noopener">Create one ↗</a>
+        </p>
+      </div>
+
       <div id="device" class="device" hidden>
         <p>Enter this code on GitHub, then approve (Okta SSO happens there if needed):</p>
         <div id="code" class="code"></div>
