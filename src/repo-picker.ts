@@ -145,8 +145,12 @@ export function createRepoPicker(
     btn.textContent = row.following ? "Following" : "+ Add";
     btn.disabled = row.following;
     btn.setAttribute("aria-label", row.following ? `Following ${row.name}` : `Add ${row.name}`);
-    btn.addEventListener("click", () => add(row.name));
     li.append(btn);
+    // One listener on the row: a click anywhere on it, the button included (it bubbles), adds once.
+    if (!row.following) {
+      li.classList.add("addable");
+      li.addEventListener("click", () => add(row.name));
+    }
     return li;
   }
 

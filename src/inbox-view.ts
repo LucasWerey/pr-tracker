@@ -24,15 +24,23 @@ export function visibleUnread(state: InboxState | undefined): number {
   return state ? unreadCount(applyLocalChanges(state.items, local)) : 0;
 }
 
-const ICONS: Record<string, string> = {
-  PullRequest:
+// A Map, so a GitHub type like "constructor" can never pull a non-SVG value into innerHTML.
+const ICONS = new Map([
+  [
+    "PullRequest",
     '<circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" y1="9" x2="6" y2="21"/>',
-  Issue: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="1"/>',
-  Release: '<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/><circle cx="7" cy="7" r="1"/>',
-  CheckSuite: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
-  Commit: '<circle cx="12" cy="12" r="3"/><line x1="3" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="21" y2="12"/>',
-};
+  ],
+  ["Issue", '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="1"/>'],
+  ["Release", '<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/><circle cx="7" cy="7" r="1"/>'],
+  ["CheckSuite", '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>'],
+  ["Commit", '<circle cx="12" cy="12" r="3"/><line x1="3" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="21" y2="12"/>'],
+]);
 const FALLBACK_ICON = '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>';
+
+/** Static SVG markup for a notification type; unknown types get a bell. */
+export function typeIcon(type: string): string {
+  return svg(ICONS.get(type) ?? FALLBACK_ICON, 16);
+}
 
 const CHECK = '<path d="M20 6 9 17l-5-5"/>';
 
@@ -44,7 +52,7 @@ function renderItem(item: InboxItem, state: InboxState, token: string, rerender:
   link.target = "_blank";
   link.rel = "noopener";
   const icon = el("span", "type-icon");
-  icon.innerHTML = svg(ICONS[item.type] ?? FALLBACK_ICON, 16);
+  icon.innerHTML = typeIcon(item.type);
   const body = el("span", "body");
   const title = el("span", "title");
   title.append(el("span", "dot"), document.createTextNode(item.title));
@@ -64,7 +72,7 @@ function renderItem(item: InboxItem, state: InboxState, token: string, rerender:
     local.read.add(item.id);
     row.classList.remove("unread");
     onChange();
-    void write(state, () => markRead(token, item.id)).catch(() => local.read.delete(item.id));
+    void write(state, "read", item.id, () => markRead(token, item.id)).catch(() => local.read.delete(item.id));
   };
   link.addEventListener("click", opened);
   link.addEventListener("auxclick", (e) => {
@@ -81,7 +89,7 @@ function renderItem(item: InboxItem, state: InboxState, token: string, rerender:
     e.stopPropagation();
     local.done.add(item.id);
     rerender();
-    write(state, () => markDone(token, item.id)).catch(() => {
+    write(state, "done", item.id, () => markDone(token, item.id)).catch(() => {
       local.done.delete(item.id);
       rerender("Couldn't mark the notification as done. Try again.");
     });
@@ -104,12 +112,26 @@ export async function runWrite(action: () => Promise<void>, afterSuccess: () => 
   }
 }
 
-/** Drops Last-Modified after a write so the next conditional fetch can't return a stale 304. */
-function write(state: InboxState, action: () => Promise<void>): Promise<void> {
-  return runWrite(action, async () => {
-    const current = await getInbox();
-    if (current?.account === state.account) await saveInbox({ ...current, lastModified: undefined });
-  });
+type WriteKind = "done" | "read";
+
+/**
+ * The stored inbox after a successful write: the thread is gone (done) or read, so a reopened panel
+ * doesn't show it as before, and Last-Modified is dropped so the next conditional fetch can't return a stale 304.
+ */
+export function applyWrite(state: InboxState, kind: WriteKind, id: string): InboxState {
+  const changes = { done: new Set<string>(), read: new Set<string>() };
+  changes[kind].add(id);
+  return { ...state, items: applyLocalChanges(state.items, changes), lastModified: undefined };
+}
+
+/** Records a successful write in storage, only if the stored inbox still belongs to the same account. */
+export async function recordWrite(account: string, kind: WriteKind, id: string): Promise<void> {
+  const current = await getInbox();
+  if (current?.account === account) await saveInbox(applyWrite(current, kind, id));
+}
+
+function write(state: InboxState, kind: WriteKind, id: string, action: () => Promise<void>): Promise<void> {
+  return runWrite(action, () => recordWrite(state.account, kind, id));
 }
 
 /** Renders the inbox. `onChange` runs after local changes so the caller can refresh the unread badge. */

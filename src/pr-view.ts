@@ -1,4 +1,5 @@
 import { ago, el, svg } from "./dom";
+import { getOpenRepos } from "./storage";
 import type { PrScope, PullRequest, QueueEntry, Settings, Snapshot } from "./types";
 
 type Tone = "green" | "red" | "yellow" | "gray" | "purple";
@@ -147,8 +148,7 @@ function avatar(name: string): HTMLElement {
 
 /** Repos are collapsed by default; the ones the user expanded are remembered across refreshes. */
 async function setRepoOpen(repo: string, open: boolean) {
-  const { openRepos = [] } = await chrome.storage.local.get("openRepos");
-  const next = (openRepos as string[]).filter((r) => r !== repo);
+  const next = (await getOpenRepos()).filter((r) => r !== repo);
   if (open) next.push(repo);
   await chrome.storage.local.set({ openRepos: next });
 }
@@ -214,18 +214,19 @@ function repoSection(
   return details;
 }
 
-export async function renderPrTab(
+/** Synchronous on purpose: the caller loads everything first, so overlapping renders can't interleave. */
+export function renderPrTab(
   els: { summary: HTMLElement; content: HTMLElement },
   snapshot: Snapshot,
   settings: Settings,
-): Promise<void> {
+  openRepos: string[],
+): void {
   renderSummary(els.summary, snapshot.prs);
-  const { openRepos = [] } = await chrome.storage.local.get("openRepos");
   for (const repo of settings.repos) {
     const prs = snapshot.prs.filter((p) => p.repo.toLowerCase() === repo.toLowerCase());
     const blocked = (snapshot.inaccessible ?? []).includes(repo);
     const ctx = { scope: settings.prScope, viewerLogin: snapshot.viewer?.login };
     const total = settings.prScope === "all" ? snapshot.totals?.[repo] : undefined;
-    els.content.append(repoSection(repo, prs, blocked, (openRepos as string[]).includes(repo), ctx, total));
+    els.content.append(repoSection(repo, prs, blocked, openRepos.includes(repo), ctx, total));
   }
 }

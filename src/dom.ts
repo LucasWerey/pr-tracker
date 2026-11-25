@@ -23,6 +23,19 @@ export function ago(ts: string | number): string {
   return hours < 24 ? `${hours}h ago` : `${Math.round(hours / 24)}d ago`;
 }
 
+/**
+ * Wraps "load, then paint" so overlapping calls can't interleave: all awaiting happens in `load`,
+ * `paint` is synchronous, and a call whose load finishes after a newer call started never paints.
+ */
+export function latestOnly<T>(load: () => Promise<T>, paint: (value: T) => void): () => Promise<void> {
+  let seq = 0;
+  return async () => {
+    const mine = ++seq;
+    const value = await load();
+    if (mine === seq) paint(value);
+  };
+}
+
 export function placeholder(title: string, text: string, withSettings = false): HTMLElement {
   const box = el("div", "placeholder");
   const logo = el("img");

@@ -1,9 +1,10 @@
-import { getInbox, getSettings, getSnapshot } from "./storage";
+import { getInbox, getOpenRepos, getSettings, getSnapshot } from "./storage";
 import { refresh } from "./refresh";
-import { ago, el, placeholder } from "./dom";
+import { ago, el, latestOnly, placeholder } from "./dom";
+import { inboxFor } from "./inbox";
 import { renderPrTab } from "./pr-view";
 import { renderInboxTab, visibleUnread } from "./inbox-view";
-import type { InboxState, Viewer } from "./types";
+import type { InboxState, Settings, Snapshot, Viewer } from "./types";
 
 type Tab = "prs" | "inbox";
 
@@ -48,12 +49,30 @@ function showTab(next: Tab) {
   inboxView.hidden = tab !== "inbox";
 }
 
-async function render() {
-  const [settings, snapshot, inbox] = await Promise.all([getSettings(), getSnapshot(), getInbox()]);
+interface PanelData {
+  settings: Settings;
+  snapshot: Snapshot | undefined;
+  /** Only the current account's inbox; undefined while another account's is still stored. */
+  inbox: InboxState | undefined;
+  openRepos: string[];
+}
+
+async function load(): Promise<PanelData> {
+  const [settings, snapshot, stored, openRepos] = await Promise.all([
+    getSettings(),
+    getSnapshot(),
+    getInbox(),
+    getOpenRepos(),
+  ]);
+  return { settings, snapshot, inbox: await inboxFor(settings.token, stored), openRepos };
+}
+
+/** Synchronous: every read happened in `load`, so two renders can never interleave their DOM work. */
+function paint({ settings, snapshot, inbox, openRepos }: PanelData) {
   const { token, repos } = settings;
   renderProfile(token ? snapshot?.viewer : undefined);
   showTab(tab);
-  renderBadge(token ? inbox : undefined);
+  renderBadge(inbox);
   const fetchedAt = tab === "prs" ? snapshot?.fetchedAt : inbox?.fetchedAt;
   updated.textContent = token && fetchedAt ? `Updated ${ago(fetchedAt)}` : "";
 
@@ -73,15 +92,18 @@ async function render() {
     return;
   }
   if (snapshot.error) content.append(el("div", "notice error", snapshot.error));
-  await renderPrTab({ summary, content }, snapshot, settings);
+  renderPrTab({ summary, content }, snapshot, settings, openRepos);
 }
+
+// Storage events, the refresh button and tab clicks often render at the same time: only the latest paints.
+const render = latestOnly(load, paint);
 
 async function reload() {
   refreshBtn.classList.add("spinning");
   updated.textContent = "Refreshing…";
   try {
+    // refresh() always saves a new snapshot, and the storage listener below re-renders for it.
     await refresh({ fullInbox: true });
-    await render();
   } finally {
     refreshBtn.classList.remove("spinning");
   }

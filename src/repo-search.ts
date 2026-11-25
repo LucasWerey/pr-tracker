@@ -36,11 +36,14 @@ export async function searchRepos(token: string, text: string, signal: AbortSign
   if (!res.ok) throw new Error(`GitHub API error ${res.status}`);
 
   const json = await res.json();
-  if (json.errors?.length) throw new Error(json.errors[0].message);
-  const nodes: Partial<RepoHit>[] = json.data?.search?.nodes ?? [];
-  return nodes
-    .filter((n): n is RepoHit => typeof n.nameWithOwner === "string")
+  const nodes: unknown[] = Array.isArray(json.data?.search?.nodes) ? json.data.search.nodes : [];
+  const hits = nodes
+    .filter((n): n is RepoHit => typeof (n as Partial<RepoHit> | null)?.nameWithOwner === "string")
     .map((n) => ({ nameWithOwner: n.nameWithOwner, isPrivate: Boolean(n.isPrivate) }));
+  // Errors can be per node (e.g. a null node for an org behind SAML): keep the repos that came
+  // back, and only report the error when nothing usable did.
+  if (hits.length === 0 && json.errors?.length) throw new Error(json.errors[0].message);
+  return hits;
 }
 
 export interface DebouncedSearchOptions {

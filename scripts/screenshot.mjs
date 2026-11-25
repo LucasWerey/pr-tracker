@@ -34,15 +34,21 @@ const stub = (avatarUrl, scope, tab) => `
     sync: { token: "demo", repos, clientId: "demo", prScope: ${JSON.stringify(scope)} },
     local: { openRepos: repos.slice(0, 2), tab: ${JSON.stringify(tab)} }, // the third repo stays collapsed, as it is by default
   };
+  const listeners = [];
   const area = (name) => ({
     get: async (keys) => {
       const list = typeof keys === "string" ? [keys] : keys;
       return Object.fromEntries(list.filter((k) => k in store[name]).map((k) => [k, store[name][k]]));
     },
-    set: async (items) => Object.assign(store[name], items),
+    set: async (items) => {
+      const changes = Object.fromEntries(Object.keys(items).map((k) => [k, { oldValue: store[name][k], newValue: items[k] }]));
+      Object.assign(store[name], items);
+      // Like Chrome, notify onChanged listeners asynchronously; the panel re-renders from them.
+      setTimeout(() => listeners.forEach((listener) => listener(changes, name)));
+    },
   });
   window.chrome = {
-    storage: { sync: area("sync"), local: area("local"), onChanged: { addListener() {} } },
+    storage: { sync: area("sync"), local: area("local"), onChanged: { addListener: (l) => listeners.push(l) } },
     runtime: { openOptionsPage() {} },
     action: { setBadgeText: async () => {}, setBadgeBackgroundColor: async () => {} },
   };

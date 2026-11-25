@@ -1,12 +1,15 @@
 import type { InboxState, Settings, Snapshot } from "./types";
 
 export async function getSettings(): Promise<Settings> {
-  const { token = "", repos = [], prScope = "mine" } = await chrome.storage.sync.get([
-    "token",
-    "repos",
-    "prScope",
-  ]);
-  return { token, repos, prScope };
+  const { token = "", repos = [], prScope } = await chrome.storage.sync.get(["token", "repos", "prScope"]);
+  // Anything but "all" (missing, corrupted, from a future version) means the default, "mine".
+  return { token, repos, prScope: prScope === "all" ? "all" : "mine" };
+}
+
+/** Repo sections the user expanded in the panel (collapsed is the default). */
+export async function getOpenRepos(): Promise<string[]> {
+  const { openRepos = [] } = await chrome.storage.local.get("openRepos");
+  return openRepos;
 }
 
 export function saveSettings(settings: Partial<Settings>): Promise<void> {

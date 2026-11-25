@@ -13,6 +13,13 @@ test("getSettings returns the stored prScope", async () => {
   assert.equal((await getSettings()).prScope, "all");
 });
 
+test("getSettings treats an unknown prScope as mine", async () => {
+  for (const prScope of ["everyone", "ALL", 1, null, { all: true }]) {
+    installChromeStub({ sync: { token: "t", repos: [], prScope } });
+    assert.equal((await getSettings()).prScope, "mine", `prScope ${JSON.stringify(prScope)}`);
+  }
+});
+
 test("saveSettings writes only the given keys", async () => {
   const stub = installChromeStub({ sync: { token: "t", repos: ["a/b"] } });
   await saveSettings({ prScope: "all" });

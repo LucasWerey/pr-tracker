@@ -149,9 +149,30 @@ test("searchRepos sends the query as a variable and maps nodes", async () => {
   assert.deepEqual(hits, [{ nameWithOwner: "o/xy", isPrivate: true }]);
 });
 
-test("searchRepos surfaces GraphQL errors", async () => {
+test("searchRepos surfaces GraphQL errors when there are no results", async () => {
   stubFetch({ errors: [{ message: "boom" }] });
   await assert.rejects(searchRepos("tok", "abc", new AbortController().signal), /boom/);
+  stubFetch({ data: null, errors: [{ message: "bang" }] });
+  await assert.rejects(searchRepos("tok", "abc", new AbortController().signal), /bang/);
+});
+
+test("searchRepos keeps partial results: null and non-repo nodes are skipped, node errors ignored", async () => {
+  stubFetch({
+    data: { search: { nodes: [null, { nameWithOwner: "o/ok", isPrivate: false }, {}, { login: "someone" }, null] } },
+    errors: [{ message: "Resource protected by organization SAML enforcement", path: ["search", "nodes", 0] }],
+  });
+  const hits = await searchRepos("tok", "abc", new AbortController().signal);
+  assert.deepEqual(hits, [{ nameWithOwner: "o/ok", isPrivate: false }]);
+});
+
+test("searchRepos reports the error when every node failed", async () => {
+  stubFetch({ data: { search: { nodes: [null, null] } }, errors: [{ message: "SAML enforcement" }] });
+  await assert.rejects(searchRepos("tok", "abc", new AbortController().signal), /SAML enforcement/);
+});
+
+test("searchRepos returns no hits for an empty search without errors", async () => {
+  stubFetch({ data: { search: { nodes: [] } } });
+  assert.deepEqual(await searchRepos("tok", "abc", new AbortController().signal), []);
 });
 
 test("searchRepos maps HTTP errors and skips fetch for short text", async () => {

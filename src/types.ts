@@ -49,6 +49,8 @@ export interface Viewer {
 export interface Snapshot {
   fetchedAt: number;
   viewer?: Viewer;
+  /** Scope the PRs were fetched with; snapshots saved before "all" existed lack it and are "mine". */
+  scope?: PrScope;
   prs: PullRequest[];
   /** Open PRs authored by the viewer in followed repos (drives the badge). */
   myCount?: number;

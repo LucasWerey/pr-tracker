@@ -382,6 +382,7 @@ body.options label input[type="radio"] { width: auto; margin: 0 8px 0 0; accent-
 .repo-results li, .repo-list li { display: flex; align-items: center; gap: 8px; padding: 6px 10px; }
 .repo-results li + li { border-top: 1px solid var(--border); }
 .repo-results li.active { background: var(--hover); }
+.repo-results li.addable { cursor: pointer; }
 .repo-list li { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; background: var(--bg); }
 .repo-list li span, .result-name { flex: 1; min-width: 0; overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
 .result-name { flex: 0 1 auto; }

@@ -1,5 +1,5 @@
 import { fetchPrs } from "./github";
-import { fetchInbox } from "./inbox";
+import { fetchInbox, overtaken } from "./inbox";
 import { getInbox, getSettings, getSnapshot, saveInbox, saveSnapshot } from "./storage";
 import type { Snapshot } from "./types";
 
@@ -10,9 +10,12 @@ export function badgeCount(snapshot: Snapshot): number {
 
 async function refreshInbox(token: string, forceFull: boolean): Promise<void> {
   if (!token) return saveInbox(undefined);
-  const state = await fetchInbox(token, await getInbox(), Date.now(), forceFull);
+  const prev = await getInbox();
+  const state = await fetchInbox(token, prev, Date.now(), forceFull);
   // The token changed while fetching: a newer refresh owns the stored inbox.
   if ((await getSettings()).token !== token) return;
+  // A concurrent refresh saved a newer full fetch meanwhile: keep it.
+  if (overtaken(state, prev, await getInbox())) return;
   await saveInbox(state);
 }
 
@@ -35,16 +38,19 @@ async function refreshPrs(): Promise<Snapshot> {
     snapshot = { fetchedAt: Date.now(), prs: [], error: "Open settings to add a token and repositories." };
   } else {
     try {
-      snapshot = { fetchedAt: Date.now(), ...(await fetchPrs(token, repos, prScope)) };
+      snapshot = { fetchedAt: Date.now(), scope: prScope, ...(await fetchPrs(token, repos, prScope)) };
     } catch (e) {
-      // Keep the previous PR list visible if the fetch failed.
+      // Keep the previous PR list visible if the fetch failed, unless it was fetched for the other
+      // scope (e.g. everyone's PRs must not show up under "Only mine").
       const previous = await getSnapshot();
+      const kept = previous && (previous.scope ?? "mine") === prScope ? previous : undefined;
       snapshot = {
         fetchedAt: Date.now(),
         viewer: previous?.viewer,
-        prs: previous?.prs ?? [],
-        myCount: previous?.myCount,
-        totals: previous?.totals,
+        scope: prScope,
+        prs: kept?.prs ?? [],
+        myCount: kept ? kept.myCount : 0,
+        totals: kept?.totals,
         error: (e as Error).message,
       };
     }

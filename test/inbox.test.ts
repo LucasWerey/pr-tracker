@@ -6,8 +6,10 @@ import {
   INBOX_URL,
   browserUrl,
   fetchInbox,
+  inboxFor,
   markDone,
   markRead,
+  overtaken,
   reasonLabel,
   toInboxItem,
   typeLabel,
@@ -87,6 +89,16 @@ test("labels", () => {
   assert.equal(typeLabel("PullRequest"), "PR");
   assert.equal(typeLabel("CheckSuite"), "CI");
   assert.equal(typeLabel("Issue"), "Issue");
+});
+
+test("labels ignore Object.prototype keys sent by GitHub", () => {
+  assert.equal(reasonLabel("constructor"), "Constructor");
+  assert.equal(reasonLabel("toString"), "ToString");
+  assert.equal(reasonLabel("hasOwnProperty"), "HasOwnProperty");
+  assert.equal(typeof reasonLabel("__proto__"), "string");
+  assert.equal(typeLabel("constructor"), "constructor");
+  assert.equal(typeLabel("__proto__"), "__proto__");
+  assert.equal(typeLabel("toString"), "toString");
 });
 
 test("toInboxItem maps a thread", () => {
@@ -205,4 +217,42 @@ test("a malformed thread is skipped while the others are kept", async () => {
   const state = await fetchInbox("tok", undefined, 5, true);
   assert.deepEqual(state.items.map((i) => i.id), ["1"]);
   assert.equal(state.error, undefined);
+});
+
+test("overtaken: a newer full fetch saved meanwhile wins over a 304 or a failure", () => {
+  const prev: InboxState = { account: ACC, fetchedAt: 100, fullFetchedAt: 100, lastModified: "X", items: [item("1")] };
+  const notModified: InboxState = { ...prev, fetchedAt: 400 };
+  const failed: InboxState = { ...prev, fetchedAt: 400, error: "offline" };
+  const newerFull: InboxState = { account: ACC, fetchedAt: 300, fullFetchedAt: 300, items: [] };
+  assert.equal(overtaken(notModified, prev, newerFull), true);
+  assert.equal(overtaken(failed, prev, newerFull), true);
+  // Only a write cleared Last-Modified meanwhile: no newer full fetch.
+  assert.equal(overtaken(notModified, prev, { ...prev, lastModified: undefined }), false);
+  assert.equal(overtaken(notModified, prev, prev), false);
+  assert.equal(overtaken(notModified, prev, undefined), false);
+});
+
+test("overtaken: between two full fetches, the one that started last wins", () => {
+  const prev: InboxState = { account: ACC, fetchedAt: 100, fullFetchedAt: 100, items: [] };
+  const stored: InboxState = { account: ACC, fetchedAt: 300, fullFetchedAt: 300, items: [] };
+  assert.equal(overtaken({ ...stored, fetchedAt: 250, fullFetchedAt: 250 }, prev, stored), true);
+  assert.equal(overtaken({ ...stored, fetchedAt: 350, fullFetchedAt: 350 }, prev, stored), false);
+});
+
+test("overtaken: accounts are compared, never mixed", async () => {
+  const other = await accountId("other");
+  const result: InboxState = { account: ACC, fetchedAt: 400, fullFetchedAt: 0, items: [], error: "offline" };
+  // Another account's stored inbox never blocks this account's result.
+  assert.equal(overtaken(result, undefined, { account: other, fetchedAt: 300, fullFetchedAt: 300, items: [] }), false);
+  // This fetch started from another account's inbox; this account's full fetch landed meanwhile.
+  const prevOther: InboxState = { account: other, fetchedAt: 900, fullFetchedAt: 900, items: [] };
+  assert.equal(overtaken(result, prevOther, { account: ACC, fetchedAt: 300, fullFetchedAt: 300, items: [] }), true);
+});
+
+test("inboxFor hides another account's stored inbox", async () => {
+  const mine: InboxState = { account: ACC, fetchedAt: 1, fullFetchedAt: 1, items: [item("1")] };
+  assert.equal(await inboxFor("tok", mine), mine);
+  assert.equal(await inboxFor("someone-else", mine), undefined);
+  assert.equal(await inboxFor("", mine), undefined);
+  assert.equal(await inboxFor("tok", undefined), undefined);
 });

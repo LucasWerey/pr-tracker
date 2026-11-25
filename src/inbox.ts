@@ -15,30 +15,34 @@ export interface Thread {
   repository: { full_name: string; html_url: string };
 }
 
-const REASONS: Record<string, string> = {
-  review_requested: "Review requested",
-  mention: "Mentioned",
-  team_mention: "Team mentioned",
-  assign: "Assigned",
-  author: "Author",
-  comment: "Commented",
-  state_change: "State changed",
-  ci_activity: "CI activity",
-  subscribed: "Watching",
-  manual: "Subscribed",
-};
+// Maps, not plain objects: GitHub-supplied keys like "constructor" must not hit Object.prototype.
+const REASONS = new Map([
+  ["review_requested", "Review requested"],
+  ["mention", "Mentioned"],
+  ["team_mention", "Team mentioned"],
+  ["assign", "Assigned"],
+  ["author", "Author"],
+  ["comment", "Commented"],
+  ["state_change", "State changed"],
+  ["ci_activity", "CI activity"],
+  ["subscribed", "Watching"],
+  ["manual", "Subscribed"],
+]);
 
 export function reasonLabel(reason: string): string {
-  const known = REASONS[reason];
+  const known = REASONS.get(reason);
   if (known) return known;
   const spaced = reason.replace(/_/g, " ");
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
-const TYPES: Record<string, string> = { PullRequest: "PR", CheckSuite: "CI" };
+const TYPES = new Map([
+  ["PullRequest", "PR"],
+  ["CheckSuite", "CI"],
+]);
 
 export function typeLabel(type: string): string {
-  return TYPES[type] ?? type;
+  return TYPES.get(type) ?? type;
 }
 
 /** Turns a notification subject into a github.com link; never returns an API URL. */
@@ -76,6 +80,15 @@ export async function accountId(token: string): Promise<string> {
     .slice(0, 8)
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+/**
+ * The stored inbox if it belongs to `token`'s account. Right after a token change the stored one is
+ * still the previous account's: show nothing (skeletons, no count) until the new fetch lands.
+ */
+export async function inboxFor(token: string, stored: InboxState | undefined): Promise<InboxState | undefined> {
+  if (!token || !stored) return undefined;
+  return stored.account === (await accountId(token)) ? stored : undefined;
 }
 
 function headers(token: string): Record<string, string> {
@@ -129,6 +142,17 @@ export async function fetchInbox(
   } catch (e) {
     return keep((e as Error).message);
   }
+}
+
+/**
+ * True when, while a fetch that started from `prev` was running, another fetch saved a newer full
+ * result for the same account. Saving `result` then would roll the inbox back (e.g. a 304 that
+ * reuses `prev`'s items could bring back threads marked done on github.com).
+ */
+export function overtaken(result: InboxState, prev: InboxState | undefined, stored: InboxState | undefined): boolean {
+  if (stored?.account !== result.account) return false;
+  const startedFrom = prev?.account === result.account ? prev.fullFetchedAt : 0;
+  return stored.fullFetchedAt > startedFrom && stored.fullFetchedAt > result.fullFetchedAt;
 }
 
 async function send(method: string, token: string, id: string): Promise<void> {
