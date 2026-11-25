@@ -13,6 +13,9 @@ const work = join(process.env.TMPDIR ?? tmpdir(), "pr-tracker-demo");
 // SCREENSHOT_SCOPE=all renders everyone's mode and writes to the scratch dir, not docs/.
 const SCOPE = process.env.SCREENSHOT_SCOPE === "all" ? "all" : "mine";
 const OUT_DIR = SCOPE === "all" ? work : "docs";
+// SCREENSHOT_TAB=inbox renders the Inbox tab and writes screenshot-inbox-*.png.
+const TAB = process.env.SCREENSHOT_TAB === "inbox" ? "inbox" : "prs";
+const FILE_PREFIX = TAB === "inbox" ? "screenshot-inbox" : "screenshot";
 
 const AVATAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
   <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
@@ -24,12 +27,12 @@ const AVATAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
 </svg>`;
 
 // Fake `chrome` APIs and GitHub GraphQL response, injected ahead of the real panel code.
-const stub = (avatarUrl, scope) => `
+const stub = (avatarUrl, scope, tab) => `
 (() => {
   const repos = ["acme/web-app", "acme/payments-api", "acme/mobile"];
   const store = {
     sync: { token: "demo", repos, clientId: "demo", prScope: ${JSON.stringify(scope)} },
-    local: { openRepos: repos.slice(0, 2) }, // the third repo stays collapsed, as it is by default
+    local: { openRepos: repos.slice(0, 2), tab: ${JSON.stringify(tab)} }, // the third repo stays collapsed, as it is by default
   };
   const area = (name) => ({
     get: async (keys) => {
@@ -91,9 +94,25 @@ const stub = (avatarUrl, scope) => `
     };
   });
 
+  // GitHub-shaped notification threads (two unread).
+  const thread = (id, mins, unread, reason, type, title, repo, path) => ({
+    id, unread, reason, updated_at: ago(mins),
+    subject: { title, type, url: path ? "https://api.github.com/repos/" + repo + path : null },
+    repository: { full_name: repo, html_url: "https://github.com/" + repo },
+  });
+  const threads = [
+    thread("1", 6, true, "review_requested", "PullRequest", "Migrate authentication to OIDC", web, "/pulls/471"),
+    thread("2", 40, true, "mention", "Issue", "Checkout fails when the cart has a discount code", web, "/issues/455"),
+    thread("3", 130, false, "subscribed", "Release", "v2.4.0", api, "/releases/9001"),
+    thread("4", 400, false, "ci_activity", "CheckSuite", "CI workflow run failed for main", mob, null),
+    thread("5", 1700, false, "comment", "Issue", "Webhook retries are not logged", api, "/issues/201"),
+  ];
+
   window.fetch = async (url, init) => {
     const target = String(url);
-    if (target.includes("/notifications")) return new Response("[]", { status: 200 });
+    if (target.includes("/notifications")) {
+      return new Response(JSON.stringify(threads), { status: 200, headers: { "Last-Modified": new Date().toUTCString() } });
+    }
     const query = init && typeof init.body === "string" ? JSON.parse(init.body).query : "";
     return new Response(JSON.stringify({ data: query.includes("first: 20") ? allData : data }), { status: 200 });
   };
@@ -110,7 +129,7 @@ await build({
   format: "iife",
   target: "chrome120",
   outfile: join(work, "panel.js"),
-  banner: { js: stub(`file://${join(work, "avatar.svg")}`, SCOPE) },
+  banner: { js: stub(`file://${join(work, "avatar.svg")}`, SCOPE, TAB) },
   logLevel: "silent",
 });
 await cp("public/styles.css", join(work, "styles.css"));
@@ -146,10 +165,10 @@ for (const [name, scheme] of [["dark", 0], ["light", 1]]) {
       `--window-size=${PAGE.width},${PAGE.height}`,
       "--virtual-time-budget=4000",
       `--blink-settings=preferredColorScheme=${scheme}`,
-      `--screenshot=${join(OUT_DIR, `screenshot-${name}.png`)}`,
+      `--screenshot=${join(OUT_DIR, `${FILE_PREFIX}-${name}.png`)}`,
       `file://${join(work, "sidepanel.html")}`,
     ],
     { stdio: "ignore" },
   );
-  console.log(`wrote ${join(OUT_DIR, `screenshot-${name}.png`)}`);
+  console.log(`wrote ${join(OUT_DIR, `${FILE_PREFIX}-${name}.png`)}`);
 }
