@@ -10,7 +10,10 @@ export function badgeCount(snapshot: Snapshot): number {
 
 async function refreshInbox(token: string, forceFull: boolean): Promise<void> {
   if (!token) return saveInbox(undefined);
-  await saveInbox(await fetchInbox(token, await getInbox(), Date.now(), forceFull));
+  const state = await fetchInbox(token, await getInbox(), Date.now(), forceFull);
+  // The token changed while fetching: a newer refresh owns the stored inbox.
+  if ((await getSettings()).token !== token) return;
+  await saveInbox(state);
 }
 
 /** Fetch PRs and the notifications inbox, persist both and update the toolbar badge. */

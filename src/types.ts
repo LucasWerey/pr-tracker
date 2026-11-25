@@ -74,6 +74,8 @@ export interface InboxItem {
 }
 
 export interface InboxState {
+  /** Short hash of the token the items were fetched with (never the token itself). */
+  account: string;
   fetchedAt: number;
   /** Time of the last unconditional (200) fetch. */
   fullFetchedAt: number;

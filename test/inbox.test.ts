@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import {
+  accountId,
   FULL_FETCH_MS,
   INBOX_URL,
   browserUrl,
@@ -43,6 +44,7 @@ function thread(id: string, updated: string) {
     repository: { full_name: "o/r", html_url: "https://github.com/o/r" },
   };
 }
+const ACC = await accountId("tok");
 const item = (id: string): InboxItem => ({
   id,
   title: "t",
@@ -121,7 +123,7 @@ test("first fetch is unconditional, stores Last-Modified, sorts newest first", a
 
 test("recent fetch is conditional and a 304 keeps items", async () => {
   const now = 10 * FULL_FETCH_MS;
-  const prev: InboxState = { fetchedAt: 0, fullFetchedAt: now - 60_000, lastModified: "X", items: [item("1")] };
+  const prev: InboxState = { account: ACC, fetchedAt: 0, fullFetchedAt: now - 60_000, lastModified: "X", items: [item("1")] };
   const calls = stubFetch(() => new Response(null, { status: 304 }));
   const state = await fetchInbox("tok", prev, now, false);
   assert.equal(headerOf(calls[0], "If-Modified-Since"), "X");
@@ -134,15 +136,15 @@ test("recent fetch is conditional and a 304 keeps items", async () => {
 test("full fetch when the last one is older than 5 minutes or forced", async () => {
   const now = 10 * FULL_FETCH_MS;
   const calls = stubFetch(() => new Response("[]", { status: 200 }));
-  await fetchInbox("tok", { fetchedAt: 0, fullFetchedAt: now - FULL_FETCH_MS - 1, lastModified: "X", items: [] }, now, false);
+  await fetchInbox("tok", { account: ACC, fetchedAt: 0, fullFetchedAt: now - FULL_FETCH_MS - 1, lastModified: "X", items: [] }, now, false);
   assert.equal(headerOf(calls[0], "If-Modified-Since"), undefined);
-  await fetchInbox("tok", { fetchedAt: 0, fullFetchedAt: now - 1000, lastModified: "X", items: [] }, now, true);
+  await fetchInbox("tok", { account: ACC, fetchedAt: 0, fullFetchedAt: now - 1000, lastModified: "X", items: [] }, now, true);
   assert.equal(headerOf(calls[1], "If-Modified-Since"), undefined);
 });
 
 test("fine-grained token gets a dedicated error and keeps items", async () => {
   stubFetch(() => new Response("", { status: 403 }));
-  const prev: InboxState = { fetchedAt: 0, fullFetchedAt: 0, items: [item("1")] };
+  const prev: InboxState = { account: await accountId("github_pat_x"), fetchedAt: 0, fullFetchedAt: 0, items: [item("1")] };
   const state = await fetchInbox("github_pat_x", prev, 5, true);
   assert.equal(state.errorKind, "fine-grained");
   assert.ok(state.error);
@@ -150,7 +152,7 @@ test("fine-grained token gets a dedicated error and keeps items", async () => {
 });
 
 test("other failures keep items and report the error", async () => {
-  const prev: InboxState = { fetchedAt: 0, fullFetchedAt: 0, items: [item("1")] };
+  const prev: InboxState = { account: ACC, fetchedAt: 0, fullFetchedAt: 0, items: [item("1")] };
   stubFetch(() => new Response("", { status: 500 }));
   let state = await fetchInbox("tok", prev, 5, true);
   assert.equal(state.error, "GitHub API error 500");
@@ -176,4 +178,31 @@ test("markRead and markDone", async () => {
   stubFetch(() => new Response("", { status: 500 }));
   await assert.rejects(markRead("tok", "42"));
   await assert.rejects(markDone("tok", "42"));
+});
+
+test("another account's stored inbox forces a full fetch and is never kept", async () => {
+  const now = 10 * FULL_FETCH_MS;
+  const old: InboxState = { account: await accountId("old"), fetchedAt: 0, fullFetchedAt: now - 1000, lastModified: "X", items: [item("1")] };
+  const calls = stubFetch(() => new Response("", { status: 401 }));
+  const state = await fetchInbox("tok", old, now, false);
+  assert.equal(headerOf(calls[0], "If-Modified-Since"), undefined);
+  assert.deepEqual(state.items, []);
+  assert.equal(state.lastModified, undefined);
+  assert.equal(state.account, ACC);
+  assert.equal(state.error, "GitHub API error 401");
+});
+
+test("a non-array body is a clear error", async () => {
+  stubFetch(() => new Response(JSON.stringify({ message: "x" }), { status: 200 }));
+  const state = await fetchInbox("tok", undefined, 5, true);
+  assert.equal(state.error, "Unexpected response from GitHub");
+  assert.deepEqual(state.items, []);
+});
+
+test("a malformed thread is skipped while the others are kept", async () => {
+  const bad = { ...thread("9", "2026-01-03T00:00:00Z"), repository: undefined };
+  stubFetch(() => new Response(JSON.stringify([bad, null, thread("1", "2026-01-01T00:00:00Z")]), { status: 200 }));
+  const state = await fetchInbox("tok", undefined, 5, true);
+  assert.deepEqual(state.items.map((i) => i.id), ["1"]);
+  assert.equal(state.error, undefined);
 });

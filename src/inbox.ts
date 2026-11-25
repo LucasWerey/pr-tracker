@@ -69,6 +69,15 @@ export function toInboxItem(thread: Thread): InboxItem {
   };
 }
 
+/** Short, non-reversible id of the token's account; lets us discard another account's inbox. */
+export async function accountId(token: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
+  return [...new Uint8Array(digest)]
+    .slice(0, 8)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 function headers(token: string): Record<string, string> {
   return { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" };
 }
@@ -79,11 +88,15 @@ const FINE_GRAINED_MESSAGE =
 /** Fetches the notifications inbox. Never throws: failures keep the previous items. */
 export async function fetchInbox(
   token: string,
-  prev: InboxState | undefined,
+  stored: InboxState | undefined,
   now: number,
   forceFull: boolean,
 ): Promise<InboxState> {
+  const account = await accountId(token);
+  // Never reuse (or keep on failure) another account's items or Last-Modified.
+  const prev = stored?.account === account ? stored : undefined;
   const keep = (error: string, errorKind?: "fine-grained"): InboxState => ({
+    account,
     fetchedAt: now,
     fullFetchedAt: prev?.fullFetchedAt ?? 0,
     lastModified: prev?.lastModified,
@@ -101,9 +114,13 @@ export async function fetchInbox(
       const fineGrained = token.startsWith("github_pat_") && [401, 403, 404].includes(res.status);
       return fineGrained ? keep(FINE_GRAINED_MESSAGE, "fine-grained") : keep(`GitHub API error ${res.status}`);
     }
-    const threads = (await res.json()) as Thread[];
-    const items = threads.map(toInboxItem).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    const body: unknown = await res.json();
+    if (!Array.isArray(body)) return keep("Unexpected response from GitHub");
+    const items = (body as Partial<Thread>[])
+      .filter((t): t is Thread => !!t && !!t.subject && !!t.repository)
+      .map(toInboxItem).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
     return {
+      account,
       fetchedAt: now,
       fullFetchedAt: now,
       lastModified: res.headers.get("Last-Modified") ?? undefined,

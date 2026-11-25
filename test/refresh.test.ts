@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import { badgeCount, refresh } from "../src/refresh";
 import type { PullRequest } from "../src/types";
+import { accountId } from "../src/inbox";
 import { installChromeStub } from "./chrome-stub";
 
 const realFetch = globalThis.fetch;
@@ -61,7 +62,7 @@ test("refresh keeps previous prs, myCount and totals on failure", async () => {
 });
 
 test("refresh without a token removes the stored inbox", async () => {
-  const stub = installChromeStub({ local: { inbox: { fetchedAt: 1, fullFetchedAt: 1, items: [] } } });
+  const stub = installChromeStub({ local: { inbox: { account: "x", fetchedAt: 1, fullFetchedAt: 1, items: [] } } });
   let notified = false;
   globalThis.fetch = (async () => {
     notified = true;
@@ -75,7 +76,7 @@ test("refresh without a token removes the stored inbox", async () => {
 test("refresh({ fullInbox: true }) fetches without If-Modified-Since", async () => {
   const stub = installChromeStub({
     sync: { token: "t", repos: [] },
-    local: { inbox: { fetchedAt: 1, fullFetchedAt: Date.now(), lastModified: "X", items: [] } },
+    local: { inbox: { account: await accountId("t"), fetchedAt: 1, fullFetchedAt: Date.now(), lastModified: "X", items: [] } },
   });
   const seen: Array<Record<string, string>> = [];
   globalThis.fetch = (async (url: string, init: RequestInit = {}) => {
@@ -91,4 +92,22 @@ test("refresh({ fullInbox: true }) fetches without If-Modified-Since", async () 
   assert.equal((stub.local.inbox as { lastModified: string }).lastModified, "Y");
   await refresh();
   assert.equal(seen[1]["If-Modified-Since"], "Y");
+});
+
+test("token change plus a failed fetch leaves no old items", async () => {
+  const old = { account: await accountId("old"), fetchedAt: 1, fullFetchedAt: Date.now(), lastModified: "X", items: [{ id: "1" }] };
+  const stub = installChromeStub({ sync: { token: "new", repos: [] }, local: { inbox: old } });
+  globalThis.fetch = (async () => new Response("", { status: 401 })) as typeof fetch;
+  await refresh({ fullInbox: true });
+  assert.deepEqual((stub.local.inbox as { items: unknown[] }).items, []);
+});
+
+test("a stale inbox result is not saved after the token changed mid-fetch", async () => {
+  const stub = installChromeStub({ sync: { token: "a", repos: [] } });
+  globalThis.fetch = (async () => {
+    stub.sync.token = "b"; // token swapped while the request is in flight
+    return new Response("[]", { status: 200 });
+  }) as typeof fetch;
+  await refresh();
+  assert.equal("inbox" in stub.local, false);
 });
