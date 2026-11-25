@@ -10,6 +10,9 @@ import { join } from "node:path";
 const CHROME =
   process.env.CHROME ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const work = join(process.env.TMPDIR ?? tmpdir(), "pr-tracker-demo");
+// SCREENSHOT_SCOPE=all renders everyone's mode and writes to the scratch dir, not docs/.
+const SCOPE = process.env.SCREENSHOT_SCOPE === "all" ? "all" : "mine";
+const OUT_DIR = SCOPE === "all" ? work : "docs";
 
 const AVATAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
   <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
@@ -21,11 +24,11 @@ const AVATAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
 </svg>`;
 
 // Fake `chrome` APIs and GitHub GraphQL response, injected ahead of the real panel code.
-const stub = (avatarUrl) => `
+const stub = (avatarUrl, scope) => `
 (() => {
   const repos = ["acme/web-app", "acme/payments-api", "acme/mobile"];
   const store = {
-    sync: { token: "demo", repos, clientId: "demo" },
+    sync: { token: "demo", repos, clientId: "demo", prScope: ${JSON.stringify(scope)} },
     local: { openRepos: repos.slice(0, 2) }, // the third repo stays collapsed, as it is by default
   };
   const area = (name) => ({
@@ -49,6 +52,7 @@ const stub = (avatarUrl) => `
     mergeQueueEntry: o.queue ?? null,
     reviewThreads: { nodes: Array.from({ length: o.threads ?? 0 }, () => ({ isResolved: false })) },
     commits: { nodes: [{ commit: { statusCheckRollup: o.ci ? { state: o.ci } : null } }] },
+    author: { login: o.author ?? "octocat", avatarUrl: ${JSON.stringify(avatarUrl)} },
     ...(o.draft ? { isDraft: true } : {}),
   });
   const web = "acme/web-app", api = "acme/payments-api", mob = "acme/mobile";
@@ -69,12 +73,35 @@ const stub = (avatarUrl) => `
     },
   };
   repos.forEach((r, i) => (data["r" + i] = { nameWithOwner: r }));
-  window.fetch = async () => new Response(JSON.stringify({ data }), { status: 200 });
+
+  // "All" mode: each repo alias carries its own latest PRs (a mix of authors) plus a total count.
+  const others = ["alice", "bob", "carol"];
+  const byRepo = [web, api, mob].map((r) => nodes.filter((n) => n.repository.nameWithOwner === r));
+  const allData = {
+    viewer: {
+      ...data.viewer,
+      pullRequests: { nodes: nodes.filter((n) => n.author.login === "octocat").map((n) => ({ repository: n.repository })) },
+    },
+  };
+  repos.forEach((r, i) => {
+    const mixed = byRepo[i].map((n, j) => (j % 2 === 1 ? { ...n, author: { ...n.author, login: others[j % 3] } } : n));
+    allData["r" + i] = {
+      nameWithOwner: r,
+      pullRequests: { totalCount: i === 0 ? 57 : mixed.length, nodes: mixed },
+    };
+  });
+
+  window.fetch = async (url, init) => {
+    const target = String(url);
+    if (target.includes("/notifications")) return new Response("[]", { status: 200 });
+    const query = init && typeof init.body === "string" ? JSON.parse(init.body).query : "";
+    return new Response(JSON.stringify({ data: query.includes("first: 20") ? allData : data }), { status: 200 });
+  };
 })();
 `;
 
 await mkdir(join(work, "icons"), { recursive: true });
-await mkdir("docs", { recursive: true });
+await mkdir(OUT_DIR, { recursive: true });
 await writeFile(join(work, "avatar.svg"), AVATAR_SVG);
 
 await build({
@@ -83,7 +110,7 @@ await build({
   format: "iife",
   target: "chrome120",
   outfile: join(work, "panel.js"),
-  banner: { js: stub(`file://${join(work, "avatar.svg")}`) },
+  banner: { js: stub(`file://${join(work, "avatar.svg")}`, SCOPE) },
   logLevel: "silent",
 });
 await cp("public/styles.css", join(work, "styles.css"));
@@ -119,10 +146,10 @@ for (const [name, scheme] of [["dark", 0], ["light", 1]]) {
       `--window-size=${PAGE.width},${PAGE.height}`,
       "--virtual-time-budget=4000",
       `--blink-settings=preferredColorScheme=${scheme}`,
-      `--screenshot=docs/screenshot-${name}.png`,
+      `--screenshot=${join(OUT_DIR, `screenshot-${name}.png`)}`,
       `file://${join(work, "sidepanel.html")}`,
     ],
     { stdio: "ignore" },
   );
-  console.log(`wrote docs/screenshot-${name}.png`);
+  console.log(`wrote ${join(OUT_DIR, `screenshot-${name}.png`)}`);
 }

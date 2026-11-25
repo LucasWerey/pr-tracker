@@ -1,5 +1,5 @@
 import { ago, el, svg } from "./dom";
-import type { PullRequest, QueueEntry, Settings, Snapshot } from "./types";
+import type { PrScope, PullRequest, QueueEntry, Settings, Snapshot } from "./types";
 
 type Tone = "green" | "red" | "yellow" | "gray" | "purple";
 type Status = "queued" | "ready" | "waiting" | "draft";
@@ -66,8 +66,46 @@ function chipsFor(pr: PullRequest): HTMLElement[] {
   return chips;
 }
 
-function prRow(pr: PullRequest, status: Status): HTMLElement {
-  const a = el("a", `pr ${status}`);
+/** Second line of a row; everyone's mode names the author (old snapshots may lack one). */
+export function subLine(pr: PullRequest, scope: PrScope): string {
+  const login = scope === "all" ? pr.author?.login : undefined;
+  return `#${pr.number}${login ? ` · @${login}` : ""} · updated ${ago(pr.updatedAt)}`;
+}
+
+/** "Showing N of M" when the repo has more open PRs than were fetched; otherwise nothing. */
+export function footerText(shown: number, total: number | undefined): string | null {
+  return total !== undefined && total > shown ? `Showing ${shown} of ${total}` : null;
+}
+
+interface RowContext {
+  scope: PrScope;
+  viewerLogin?: string;
+}
+
+/** Sub line with a small author avatar before `@login` (everyone's mode). */
+function subElement(pr: PullRequest, scope: PrScope): HTMLElement {
+  const sub = el("div", "sub");
+  const author = scope === "all" ? pr.author : undefined;
+  if (author?.avatarUrl) {
+    const img = el("img", "author-avatar");
+    img.src = author.avatarUrl;
+    img.width = 16;
+    img.height = 16;
+    img.alt = "";
+    // Avatar sits before "@login", so split the text around the login.
+    const text = subLine(pr, scope);
+    const at = text.indexOf("@");
+    sub.append(text.slice(0, at), img, text.slice(at));
+    return sub;
+  }
+  sub.textContent = subLine(pr, scope);
+  return sub;
+}
+
+function prRow(pr: PullRequest, status: Status, ctx: RowContext): HTMLElement {
+  const own =
+    ctx.scope === "all" && !!ctx.viewerLogin && pr.author?.login.toLowerCase() === ctx.viewerLogin.toLowerCase();
+  const a = el("a", `pr ${status}${own ? " mine" : ""}`);
   a.href = pr.url;
   a.target = "_blank";
   a.insertAdjacentHTML("afterbegin", STATUS_ICONS[status]);
@@ -75,7 +113,7 @@ function prRow(pr: PullRequest, status: Status): HTMLElement {
   const body = el("div", "body");
   body.append(
     el("div", "title", pr.title),
-    el("div", "sub", `#${pr.number} · updated ${ago(pr.updatedAt)}`),
+    subElement(pr, ctx.scope),
   );
   const chips = chipsFor(pr);
   if (chips.length > 0) {
@@ -120,6 +158,8 @@ function repoSection(
   prs: PullRequest[],
   inaccessible: boolean,
   open: boolean,
+  ctx: RowContext,
+  total?: number,
 ): HTMLElement {
   const [owner, name = ""] = repo.split("/");
   const details = el("details", "repo");
@@ -159,7 +199,17 @@ function repoSection(
     if (group.length === 0) continue;
     const heading = el("div", `group ${status}`);
     heading.append(el("span", "dot"), el("span", undefined, label), el("span", "n", String(group.length)));
-    details.append(heading, ...group.map((p) => prRow(p, status)));
+    details.append(heading, ...group.map((p) => prRow(p, status, ctx)));
+  }
+
+  const footer = footerText(prs.length, total);
+  if (footer) {
+    const row = el("div", "repo-footer", `${footer} · `);
+    const link = el("a", undefined, "View all on GitHub ↗");
+    link.href = `https://github.com/${repo}/pulls`;
+    link.target = "_blank";
+    row.append(link);
+    details.append(row);
   }
   return details;
 }
@@ -174,6 +224,8 @@ export async function renderPrTab(
   for (const repo of settings.repos) {
     const prs = snapshot.prs.filter((p) => p.repo.toLowerCase() === repo.toLowerCase());
     const blocked = (snapshot.inaccessible ?? []).includes(repo);
-    els.content.append(repoSection(repo, prs, blocked, (openRepos as string[]).includes(repo)));
+    const ctx = { scope: settings.prScope, viewerLogin: snapshot.viewer?.login };
+    const total = settings.prScope === "all" ? snapshot.totals?.[repo] : undefined;
+    els.content.append(repoSection(repo, prs, blocked, (openRepos as string[]).includes(repo), ctx, total));
   }
 }
