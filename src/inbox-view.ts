@@ -36,7 +36,7 @@ const FALLBACK_ICON = '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><
 
 const CHECK = '<path d="M20 6 9 17l-5-5"/>';
 
-function renderItem(item: InboxItem, state: InboxState, token: string, rerender: (failure?: string) => void): HTMLElement {
+function renderItem(item: InboxItem, state: InboxState, token: string, rerender: (failure?: string) => void, onChange: () => void): HTMLElement {
   const row = el("div", item.unread ? "inbox-item unread" : "inbox-item");
 
   const link = el("a", "inbox-link");
@@ -63,6 +63,7 @@ function renderItem(item: InboxItem, state: InboxState, token: string, rerender:
     if (!item.unread || local.read.has(item.id)) return;
     local.read.add(item.id);
     row.classList.remove("unread");
+    onChange();
     void write(state, () => markRead(token, item.id)).catch(() => local.read.delete(item.id));
   };
   link.addEventListener("click", opened);
@@ -90,11 +91,25 @@ function renderItem(item: InboxItem, state: InboxState, token: string, rerender:
   return row;
 }
 
-/** Runs a GitHub write, then drops Last-Modified so the next conditional fetch can't return a stale 304. */
-async function write(state: InboxState, action: () => Promise<void>): Promise<void> {
+/**
+ * Runs a GitHub write. Only a failure of `action` rejects; `afterSuccess` (storage bookkeeping)
+ * is best-effort so a storage error never looks like a GitHub failure.
+ */
+export async function runWrite(action: () => Promise<void>, afterSuccess: () => Promise<void>): Promise<void> {
   await action();
-  const current = await getInbox();
-  if (current?.account === state.account) await saveInbox({ ...current, lastModified: undefined });
+  try {
+    await afterSuccess();
+  } catch {
+    // The server already has the change; the next full fetch reconciles.
+  }
+}
+
+/** Drops Last-Modified after a write so the next conditional fetch can't return a stale 304. */
+function write(state: InboxState, action: () => Promise<void>): Promise<void> {
+  return runWrite(action, async () => {
+    const current = await getInbox();
+    if (current?.account === state.account) await saveInbox({ ...current, lastModified: undefined });
+  });
 }
 
 /** Renders the inbox. `onChange` runs after local changes so the caller can refresh the unread badge. */
@@ -144,6 +159,6 @@ export function renderInboxTab(
     return;
   }
   const list = el("div", "inbox-list");
-  for (const item of items) list.append(renderItem(item, state, token, rerender));
+  for (const item of items) list.append(renderItem(item, state, token, rerender, onChange));
   container.append(list);
 }

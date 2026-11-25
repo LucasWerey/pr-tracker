@@ -108,8 +108,12 @@ chrome.storage.onChanged.addListener((changes, area) => {
 });
 
 async function start() {
-  const { tab: saved } = await chrome.storage.local.get("tab");
-  if (saved === "prs" || saved === "inbox") tab = saved;
+  try {
+    const { tab: saved } = await chrome.storage.local.get("tab");
+    if (saved === "prs" || saved === "inbox") tab = saved;
+  } catch {
+    // Default to the Pull requests tab.
+  }
   await render();
   await reload();
 }
