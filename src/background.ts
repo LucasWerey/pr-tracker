@@ -21,5 +21,5 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === ALARM) void refresh();
 });
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === "sync" && (changes.token || changes.repos)) void refresh();
+  if (area === "sync" && (changes.token || changes.repos || changes.prScope)) void refresh();
 });

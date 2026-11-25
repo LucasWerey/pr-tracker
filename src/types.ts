@@ -18,6 +18,11 @@ export interface QueueEntry {
   state: QueueState;
 }
 
+export interface Author {
+  login: string;
+  avatarUrl: string;
+}
+
 export interface PullRequest {
   repo: string;
   number: number;
@@ -29,6 +34,7 @@ export interface PullRequest {
   review: ReviewDecision;
   mergeable: Mergeable;
   unresolvedThreads: number;
+  author: Author;
   /** Set when the PR is in the repository's merge queue. */
   queue?: QueueEntry;
 }
@@ -44,6 +50,10 @@ export interface Snapshot {
   fetchedAt: number;
   viewer?: Viewer;
   prs: PullRequest[];
+  /** Open PRs authored by the viewer in followed repos (drives the badge). */
+  myCount?: number;
+  /** Open PR count per followed repo (key = configured repo string); set in "all" mode. */
+  totals?: Record<string, number>;
   /** Configured repos the token could not see. */
   inaccessible?: string[];
   error?: string;
