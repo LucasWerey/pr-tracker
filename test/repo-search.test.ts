@@ -23,14 +23,15 @@ test("buildRepoSearchQuery", () => {
 
 function setup(run: (text: string, signal: AbortSignal) => Promise<RepoHit[]>) {
   const results: [string, RepoHit[]][] = [];
+  const errors: [string, Error][] = [];
   const search = createDebouncedSearch({
     delayMs: 300,
     minChars: 2,
     run,
     onResults: (t, h) => results.push([t, h]),
-    onError: () => {},
+    onError: (t, e) => errors.push([t, e]),
   });
-  return { search, results };
+  return { search, results, errors };
 }
 
 test("runs once, 300 ms after the last keystroke, with the latest text", () => {
@@ -84,6 +85,50 @@ test("text under 2 characters cancels and reports no results without running", (
   assert.deepEqual(results, [["l", []]]);
   mock.timers.tick(300);
   assert.equal(ran, 0);
+});
+
+test("an aborted run that rejects stays silent", async () => {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  const { search, results, errors } = setup(
+    (_t, signal) =>
+      new Promise((_res, rej) =>
+        signal.addEventListener("abort", () => rej(new DOMException("aborted", "AbortError"))),
+      ),
+  );
+  search.input("led");
+  mock.timers.tick(300);
+  search.input("l");
+  await new Promise((r) => setImmediate(r));
+  assert.deepEqual(errors, []);
+  assert.deepEqual(results, [["l", []]]);
+});
+
+test("a real failure reaches onError with the original text", async () => {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  const boom = new Error("boom");
+  const { search, errors } = setup(() => Promise.reject(boom));
+  search.input("led");
+  mock.timers.tick(300);
+  await new Promise((r) => setImmediate(r));
+  assert.deepEqual(errors, [["led", boom]]);
+});
+
+test("cancel() mid-flight suppresses a late result", async () => {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  let resolve!: (h: RepoHit[]) => void;
+  let signal!: AbortSignal;
+  const { search, results, errors } = setup((_t, s) => {
+    signal = s;
+    return new Promise((res) => (resolve = res));
+  });
+  search.input("led");
+  mock.timers.tick(300);
+  search.cancel();
+  assert.equal(signal.aborted, true);
+  resolve([{ nameWithOwner: "a/b", isPrivate: false }]);
+  await new Promise((r) => setImmediate(r));
+  assert.deepEqual(results, []);
+  assert.deepEqual(errors, []);
 });
 
 function stubFetch(body: unknown, status = 200) {
