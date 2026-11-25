@@ -58,3 +58,27 @@ export interface Snapshot {
   inaccessible?: string[];
   error?: string;
 }
+
+export interface InboxItem {
+  id: string;
+  title: string;
+  /** GitHub subject type, e.g. "PullRequest". */
+  type: string;
+  /** owner/name */
+  repo: string;
+  reason: string;
+  unread: boolean;
+  updatedAt: string;
+  /** Browser-friendly link (never an api.github.com URL). */
+  url: string;
+}
+
+export interface InboxState {
+  fetchedAt: number;
+  /** Time of the last unconditional (200) fetch. */
+  fullFetchedAt: number;
+  lastModified?: string;
+  items: InboxItem[];
+  error?: string;
+  errorKind?: "fine-grained";
+}

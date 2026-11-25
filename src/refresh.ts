@@ -1,5 +1,6 @@
 import { fetchPrs } from "./github";
-import { getSettings, getSnapshot, saveSnapshot } from "./storage";
+import { fetchInbox } from "./inbox";
+import { getInbox, getSettings, getSnapshot, saveInbox, saveSnapshot } from "./storage";
 import type { Snapshot } from "./types";
 
 /** The badge counts only the viewer's own open PRs (older snapshots lack myCount). */
@@ -7,8 +8,23 @@ export function badgeCount(snapshot: Snapshot): number {
   return snapshot.myCount ?? snapshot.prs.length;
 }
 
-/** Fetch PRs, persist the snapshot and update the toolbar badge. */
-export async function refresh(_opts: { fullInbox?: boolean } = {}): Promise<Snapshot> {
+async function refreshInbox(token: string, forceFull: boolean): Promise<void> {
+  if (!token) return saveInbox(undefined);
+  await saveInbox(await fetchInbox(token, await getInbox(), Date.now(), forceFull));
+}
+
+/** Fetch PRs and the notifications inbox, persist both and update the toolbar badge. */
+export async function refresh(opts: { fullInbox?: boolean } = {}): Promise<Snapshot> {
+  const { token } = await getSettings();
+  // Isolated so a failure in either never affects the other.
+  const [snapshot] = await Promise.all([
+    refreshPrs(),
+    refreshInbox(token, opts.fullInbox ?? false).catch(() => {}),
+  ]);
+  return snapshot;
+}
+
+async function refreshPrs(): Promise<Snapshot> {
   const { token, repos, prScope } = await getSettings();
   let snapshot: Snapshot;
 
