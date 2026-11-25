@@ -78,8 +78,7 @@ async function startSignIn() {
     window.open(code.verificationUri, "_blank");
 
     const accessToken = await pollForToken(id, code, flow.signal);
-    const { repos: current } = await getSettings();
-    await saveSettings({ token: accessToken, repos: current });
+    await saveSettings({ token: accessToken });
     setStatus("Signed in ✓", "ok");
   } catch (e) {
     if ((e as Error).name !== "AbortError") setStatus((e as Error).message, "error");
@@ -125,8 +124,7 @@ async function checkToken(raw: string): Promise<string | null> {
 async function connectToken(raw: string) {
   const token = await checkToken(raw);
   if (!token) return;
-  const { repos: current } = await getSettings();
-  await saveSettings({ token, repos: current });
+  await saveSettings({ token });
   tokenInput.value = "";
   flow?.abort();
   setStatus("Token saved ✓", "ok");
@@ -140,8 +138,7 @@ tokenInput.addEventListener("keydown", (e) => {
 });
 $("cancel").addEventListener("click", () => flow?.abort());
 signout.addEventListener("click", async () => {
-  const { repos: current } = await getSettings();
-  await saveSettings({ token: "", repos: current });
+  await saveSettings({ token: "" });
   setStatus("Signed out", "ok");
   await showConnection();
 });

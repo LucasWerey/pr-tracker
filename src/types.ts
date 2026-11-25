@@ -1,6 +1,10 @@
+/** Whose PRs to track: only the signed-in user's, or everyone's in the tracked repos. */
+export type PrScope = "mine" | "all";
+
 export interface Settings {
   token: string;
   repos: string[];
+  prScope: PrScope;
 }
 
 export type CiState = "SUCCESS" | "FAILURE" | "ERROR" | "PENDING" | "EXPECTED" | "NONE";

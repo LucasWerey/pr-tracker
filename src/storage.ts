@@ -1,11 +1,15 @@
 import type { Settings, Snapshot } from "./types";
 
 export async function getSettings(): Promise<Settings> {
-  const { token = "", repos = [] } = await chrome.storage.sync.get(["token", "repos"]);
-  return { token, repos };
+  const { token = "", repos = [], prScope = "mine" } = await chrome.storage.sync.get([
+    "token",
+    "repos",
+    "prScope",
+  ]);
+  return { token, repos, prScope };
 }
 
-export function saveSettings(settings: Settings): Promise<void> {
+export function saveSettings(settings: Partial<Settings>): Promise<void> {
   return chrome.storage.sync.set(settings);
 }
 
