@@ -319,8 +319,8 @@ body.options label input[type="radio"] { width: auto; margin: 0 8px 0 0; accent-
 .result-name { flex: 0 1 auto; }
 .repo-results .lock { flex: 1; display: inline-flex; color: var(--muted); }
 .repo-results li button:last-child { margin-left: auto; }
-.icon-btn { padding: 2px 8px; color: var(--muted); }
-.icon-btn:hover { color: var(--red); }
+.repo-remove { padding: 2px 8px; color: var(--muted); }
+.repo-remove:hover { color: var(--red); }
 fieldset.scope { margin: 20px 0 0; padding: 0; border: 0; }
 fieldset.scope legend { padding: 0; margin-bottom: 6px; font-weight: 600; }
 fieldset.scope label { margin: 4px 0; font-weight: 400; }
