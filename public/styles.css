@@ -307,4 +307,21 @@ button.primary:hover { filter: brightness(1.08); background: var(--accent); }
 .btn:hover { background: var(--hover); }
 details.advanced { margin-top: 16px; }
 details.advanced summary { cursor: pointer; color: var(--muted); }
+body.options .sub { margin: 16px 0 6px; font-weight: 600; }
+body.options label input[type="radio"] { width: auto; margin: 0 8px 0 0; accent-color: var(--accent); }
+.repo-results, .repo-list { list-style: none; margin: 6px 0 0; padding: 0; }
+.repo-results { border: 1px solid var(--border); border-radius: 8px; background: var(--bg); overflow: hidden; }
+.repo-results li, .repo-list li { display: flex; align-items: center; gap: 8px; padding: 6px 10px; }
+.repo-results li + li { border-top: 1px solid var(--border); }
+.repo-results li.active { background: var(--hover); }
+.repo-list li { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; background: var(--bg); }
+.repo-list li span, .result-name { flex: 1; min-width: 0; overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.result-name { flex: 0 1 auto; }
+.repo-results .lock { flex: 1; display: inline-flex; color: var(--muted); }
+.repo-results li button:last-child { margin-left: auto; }
+.icon-btn { padding: 2px 8px; color: var(--muted); }
+.icon-btn:hover { color: var(--red); }
+fieldset.scope { margin: 20px 0 0; padding: 0; border: 0; }
+fieldset.scope legend { padding: 0; margin-bottom: 6px; font-weight: 600; }
+fieldset.scope label { margin: 4px 0; font-weight: 400; }
 [hidden] { display: none !important; }

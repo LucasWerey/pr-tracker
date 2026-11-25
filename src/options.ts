@@ -1,11 +1,11 @@
 import { pollForToken, requestDeviceCode } from "./auth";
 import { fetchViewerLogin } from "./github";
+import { createRepoPicker } from "./repo-picker";
 import { getClientId, getSettings, saveClientId, saveSettings } from "./storage";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
 const clientId = $<HTMLInputElement>("client-id");
-const repos = $<HTMLTextAreaElement>("repos");
 const status = $("status");
 const connText = $("conn-text");
 const signin = $<HTMLButtonElement>("signin");
@@ -17,6 +17,26 @@ const device = $("device");
 const codeBox = $("code");
 const deviceStatus = $("device-status");
 
+const picker = createRepoPicker(
+  {
+    input: $<HTMLInputElement>("repo-search"),
+    results: $("repo-results"),
+    list: $("repo-list"),
+    hint: $("repo-search-hint"),
+  },
+  () => {
+    status.textContent = "Not saved yet";
+    status.className = "muted";
+  },
+);
+const scopeInputs = document.querySelectorAll<HTMLInputElement>('input[name="pr-scope"]');
+scopeInputs.forEach((r) =>
+  r.addEventListener("change", () => {
+    status.textContent = "Not saved yet";
+    status.className = "muted";
+  }),
+);
+
 let flow: AbortController | undefined;
 
 function setStatus(text: string, kind: "ok" | "error") {
@@ -26,6 +46,7 @@ function setStatus(text: string, kind: "ok" | "error") {
 
 async function showConnection() {
   const { token: current } = await getSettings();
+  picker.setToken(current);
   const id = await getClientId();
   signin.hidden = true;
   signout.hidden = true;
@@ -144,15 +165,6 @@ signout.addEventListener("click", async () => {
 });
 
 $("save").addEventListener("click", async () => {
-  const list = repos.value
-    .split("\n")
-    .map((r) => r.trim())
-    .filter(Boolean);
-  const invalid = list.find((r) => !/^[\w.-]+\/[\w.-]+$/.test(r));
-  if (invalid) {
-    setStatus(`Invalid repo: ${invalid}`, "error");
-    return;
-  }
   let token: string;
   const pasted = tokenInput.value.trim() !== "";
   if (pasted) {
@@ -163,7 +175,8 @@ $("save").addEventListener("click", async () => {
     token = (await getSettings()).token;
   }
   await saveClientId(clientId.value.trim());
-  await saveSettings({ token, repos: list });
+  const prScope = document.querySelector<HTMLInputElement>('input[name="pr-scope"]:checked')?.value === "all" ? "all" : "mine";
+  await saveSettings({ token, repos: picker.getRepos(), prScope });
   if (pasted) {
     tokenInput.value = "";
     flow?.abort();
@@ -174,7 +187,8 @@ $("save").addEventListener("click", async () => {
 
 void (async () => {
   const s = await getSettings();
-  repos.value = s.repos.join("\n");
+  picker.setRepos(s.repos);
+  scopeInputs.forEach((r) => (r.checked = r.value === s.prScope));
   clientId.value = await getClientId();
   await showConnection();
 })();

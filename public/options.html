@@ -52,9 +52,20 @@
         </p>
       </details>
 
-      <label for="repos">Repositories</label>
-      <textarea id="repos" rows="8" placeholder="LedgerHQ/coinradar-v2" spellcheck="false"></textarea>
-      <p class="hint">One <code>owner/name</code> per line. Sections appear in this order.</p>
+      <label for="repo-search">Repositories</label>
+      <input id="repo-search" type="search" placeholder="Search repositories… (owner/ narrows to one owner)" autocomplete="off" spellcheck="false" />
+      <ul id="repo-results" class="repo-results" role="listbox" aria-label="Search results" hidden></ul>
+      <p id="repo-search-hint" class="hint"></p>
+
+      <p class="sub">Following</p>
+      <ul id="repo-list" class="repo-list"></ul>
+      <p class="hint">Sections appear in this order.</p>
+
+      <fieldset class="scope">
+        <legend>Show pull requests</legend>
+        <label><input type="radio" name="pr-scope" value="mine" checked /> Only mine</label>
+        <label><input type="radio" name="pr-scope" value="all" /> Everyone's (20 latest per repo)</label>
+      </fieldset>
 
       <div class="actions">
         <button id="save" class="primary">Save</button>
